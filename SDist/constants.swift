@@ -14,6 +14,7 @@ class Endpoints{
     static let location = DC + "/location?l=%@&p=%@"
     static let setLocation = DC + "/location/set?k=%@&v=%@&p=%@"
     static let allLocation = DC + "/location/all?p=%@"
+    static let removeLocation = DC + "/location/remove?k=%@&p=%@"
 }
 
 enum CommandLineArgs: String {
@@ -34,7 +35,7 @@ let documentationForFlags: [String: String] = [
 
 
 
-let WELCOME_MSG = "Welcome to Salman's Distribution Center CLI"
+let WELCOME_MSG = "Welcome to SDist CLI"
 let HELP_MSG = "This CLI Tool allows you to interact with the distribution center assets."
 
 let CONSTANT_MSGS_DIST_C_SERVER: [String: String] = [

@@ -16,7 +16,6 @@ typealias dynamicParams = [String: String]
 
 
 extension dynamicParams{
-    
     func getKey(_ string: String, alternative_method: () -> (String)) -> String{
         
         let specialId = Array(self.keys).description
@@ -43,7 +42,6 @@ extension dynamicParams{
         
         return alternative_method()
     }
-    
     init(fromArray: [String]){
         
         self.init()
@@ -74,7 +72,6 @@ func askUserWrapper(question: String) -> () -> String{
     
     return wrapper
 }
-
 
 
 func get_location(_ params: dynamicParams) throws{
@@ -166,7 +163,6 @@ func download_asset(_ params: dynamicParams) throws{
     print("Asset downloade, file: \(finalDestination)")
 }
 
-
 func list_all(_ params: dynamicParams) throws{
     let response = GET(url: .init(format: Endpoints.allLocation, PASSWORD))
     if try !_check_response(response){
@@ -201,10 +197,31 @@ func update_locations(_ params: dynamicParams) throws{
     if try !_check_response(response){
         return
     }
-    
+}
 
-    
-    
+func remove_location(_ params: dynamicParams) throws {
+    let key = params.getKey("key", alternative_method: askUserWrapper(question: "Asset Key:"))
+    let response = GET(url: .init(format: Endpoints.removeLocation, key, PASSWORD))
+    if try _check_response(response){
+        print("Server Response:", response ?? "cURL didn't return a response")
+        print("Asset should be deleted.")
+    }else{
+        print("Something went wrong. Server Response:")
+        print(response ?? "cURL didn't return a response")
+    }
+}
+
+func save_password(_ params: dynamicParams) throws{
+    let password = params.getKey("password", alternative_method: askUserWrapper(question: "Password:"))
+    let data = password.data(using: .utf8)!
+    try data.write(to: PW_location)
+}
+
+func load_password() throws -> String?{
+    if let pw = String(data: try Data(contentsOf: PW_location), encoding: .utf8){
+        return pw
+    }
+    return nil
 }
 
 
@@ -233,6 +250,16 @@ let COMMANDS = [
         "function": exit,
         "description": "Exit the CLI"
     ],
+    
+    "save-password": [
+        "function": save_password,
+        "description": "Save a password to file"
+    ],
+    
+    "rm-asset": [
+        "function": remove_location,
+        "description": "Remove an asset from the manifest"
+    ]
 ]
 
 

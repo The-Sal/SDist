@@ -9,9 +9,7 @@ import Foundation
 
 
 
-let VERSION = 0.4
-
-
+let VERSION = 0.5
 
 print(WELCOME_MSG)
 print("Version: \(VERSION)")
@@ -72,13 +70,21 @@ extension [String]{
 
 var PASSWORD: String = "NONE"
 let arguments = CommandLine.arguments
+let PW_location = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".sdist")
 
 
 func user_interface() throws{
     while true{
+        let cmds = COMMANDS.sorted(by: {
+            let l1 = $0.key.count + ($0.value["description"] as! String).count
+            let l2 = $1.key.count + ($1.value["description"] as! String).count
+            
+            return l1 < l2
+        })
+
         print("Commands:")
-        for command in COMMANDS{
-            print(" \(command.key): \(command.value["description"]!)")
+        for command in cmds {
+            print("\t\(command.key): \(command.value["description"]!)")
         }
         
         print("Ener a command: ", terminator: "")
@@ -89,7 +95,9 @@ func user_interface() throws{
         }
         
         if let command = COMMANDS[cmd]{
-            guard let function = command["function"]! as? (dynamicParams) throws -> Void else { throw CLIExceptions.UnableToCastFunction }
+            guard let function = command["function"]! as? (dynamicParams) throws -> Void else {
+                throw CLIExceptions.UnableToCastFunction
+            }
             
             let showOperation = String(repeating: "*", count: Int(Double(getTerminalColumns() ?? 100) * 0.5))
             print(showOperation)
@@ -123,11 +131,6 @@ do{
     if arguments.contains(.helpArg){
         print("Generating docs...")
         let docs = generateDocs()
-//        let tempFile = URL(filePath: NSTemporaryDirectory()).appending(path: "docs.txt")
-//        try docs.write(to: tempFile, atomically: true, encoding: .utf8)
-//        showDocumentation(docs: tempFile.path(percentEncoded: false))
-//        rm(tempFile.path(percentEncoded: false))
-        
         print(docs)
         
         exit(EXIT_SUCCESS)
@@ -138,7 +141,11 @@ do{
         PASSWORD = try arguments.findArgumentValue(.passwordArg)
         try commandLineMode()
     }else{
-        PASSWORD = askUser(question: "Enter Password:")
+        if let pw = try? load_password(){
+            PASSWORD = pw
+        }else{
+            PASSWORD = askUser(question: "Enter Password:")
+        }
         try user_interface()
     }
     

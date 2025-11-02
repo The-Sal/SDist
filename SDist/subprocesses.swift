@@ -26,8 +26,6 @@ func GET(url: String) -> String? {
     }
 }
 
-
-
 func downloadFile(url: String, saveName: String) {
     let task = Process()
     task.launchPath = "/usr/bin/env"
@@ -35,7 +33,6 @@ func downloadFile(url: String, saveName: String) {
     task.launch()
     task.waitUntilExit()
 }
-
 
 func unzip(tempFilePath: String){
     let task = Process()
@@ -48,7 +45,6 @@ func unzip(tempFilePath: String){
     task.launch()
     task.waitUntilExit()
 }
-
 
 func mv(_ string: String, destination: String){
     let task1 = Process()
@@ -83,6 +79,3 @@ func getTerminalColumns() -> Int? {
 
     return nil
 }
-
-
-
