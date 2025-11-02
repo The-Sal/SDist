@@ -57,7 +57,7 @@ extension dynamicParams{
 
 
 let tempDir = URL(filePath: NSTemporaryDirectory())
-
+let fm = FileManager.default
 
 func askUser(question: String) -> String{
     print(question)
@@ -108,6 +108,7 @@ func install_app(_ params: dynamicParams) throws{
         ["xattr", "-cr"]
     ]
     
+    rm(random_directory.appending(path: "__MACOSX").path(percentEncoded: false))
     
     if let app_real_name = try FileManager.default.contentsOfDirectory(atPath: random_directory.path(percentEncoded: false)).first{
         let app_name = random_directory.appending(path: app_real_name)
@@ -146,7 +147,7 @@ func install_app(_ params: dynamicParams) throws{
    
 }
 
-func download_asset(_ params: dynamicParams) throws{
+func download_asset(_ params: dynamicParams) throws {
     let key = params.getKey("key", alternative_method: askUserWrapper(question: "Asset Key:"))
     let saveName = params.getKey("saveName", alternative_method: askUserWrapper(question: "What would you like to save the file as?:"))
     let response = GET(url: .init(format: Endpoints.location, key, PASSWORD))
@@ -160,7 +161,32 @@ func download_asset(_ params: dynamicParams) throws{
     
     downloadFile(url: response!, saveName: saveName)
     let finalDestination = URL(filePath: FileManager.default.currentDirectoryPath).appending(path: saveName).path(percentEncoded: false)
-    print("Asset downloade, file: \(finalDestination)")
+    print("Asset downloaded, file: \(finalDestination)")
+    
+    if saveName.contains(".enc"){
+        print(".enc file detected, would you like to decrypt the file")
+        let decrypt_file_user = params.getKey("decryptFile", alternative_method: askUserWrapper(question: "Would you like to decrypt this file (y/n):"))
+        if decrypt_file_user.lowercased() == "y"{
+            print("Decryption is done via openssl, there is no support for command line mode.")
+            decrypt_file(finalDestination, file: finalDestination.replacingOccurrences(of: ".enc", with: ""))
+        }
+    }
+}
+
+func encrypt_asset(_ params: dynamicParams) throws{
+    let fp = params.getKey("path", alternative_method: askUserWrapper(question: "Filepath:")).replacingOccurrences(of: "\\ ", with: " ")
+    var dst = params.getKey("dest", alternative_method: askUserWrapper(question: "Destination:"))
+    if !dst.contains(".enc"){
+        print("Warning, per SDist encryption spec, the file will be saved with a .enc extension.")
+        dst.append(".enc")
+    }
+    openssl_encrypt(fp, outputFile: dst)
+}
+
+func local_decrypt(_ params: dynamicParams) throws {
+    let fp = params.getKey("path", alternative_method: askUserWrapper(question: "Filepath:")).replacingOccurrences(of: "\\ ", with: " ")
+    let dst = params.getKey("dest", alternative_method: askUserWrapper(question: "Destination:"))
+    openssl_decrypt(fp, outputFile: dst)
 }
 
 func list_all(_ params: dynamicParams) throws{
@@ -223,7 +249,9 @@ func load_password() throws -> String?{
     }
     return nil
 }
-
+func decrypt_file(_ filePath: String, file: String){
+    openssl_decrypt(filePath, outputFile: file)
+}
 
 let COMMANDS = [
     "get": [
@@ -236,7 +264,7 @@ let COMMANDS = [
     ],
     "download": [
         "function": download_asset,
-        "description": "Download an asset"
+        "description": "Download an asset, (optionally decrypting)"
     ],
     "list": [
         "function": list_all,
@@ -259,6 +287,15 @@ let COMMANDS = [
     "rm-asset": [
         "function": remove_location,
         "description": "Remove an asset from the manifest"
+    ],
+    "encrypt": [
+        "function": encrypt_asset,
+        "description": "Locally encrypt a file using SDist encryption spec"
+    ],
+    
+    "decrypt": [
+        "function": local_decrypt,
+        "description": "Locally Decrypt a file using SDist encryption spec"
     ]
 ]
 

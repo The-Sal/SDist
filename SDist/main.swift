@@ -9,7 +9,7 @@ import Foundation
 
 
 
-let VERSION = 0.5
+let VERSION = 0.7
 
 print(WELCOME_MSG)
 print("Version: \(VERSION)")
@@ -32,11 +32,9 @@ extension [String]{
             str == string
         }
     }
-    
     func contains(_ cliArg: CommandLineArgs) -> Bool{
         return self.contains(cliArg.rawValue)
     }
-    
     func findArgumentValue(_ cliArgs: CommandLineArgs) throws -> String{
         if let index = self.firstIndex(of: cliArgs.rawValue){
             if (index + 1) < self.count{
@@ -52,7 +50,6 @@ extension [String]{
         
         
     }
-    
     func findArgumentValues(_ cliArgs: CommandLineArgs) -> [String]{
         if let index = self.firstIndex(of: cliArgs.rawValue){
             if (index + 1) < self.count{
@@ -62,8 +59,6 @@ extension [String]{
         
         return []
     }
-    
-
 }
 
 
