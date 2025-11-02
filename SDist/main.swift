@@ -81,7 +81,7 @@ func user_interface() throws{
             print(" \(command.key): \(command.value["description"]!)")
         }
         
-        print("Ener a command:", terminator: "")
+        print("Ener a command: ", terminator: "")
         let cmd = readLine()!
         
         if cmd == "exit"{
