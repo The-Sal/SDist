@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2217654D2EB7E68500A283BC /* openssl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217654C2EB7E68500A283BC /* openssl.swift */; };
+		2217654F2EB7E68600A283BC /* secureEnclave.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217654E2EB7E68600A283BC /* secureEnclave.swift */; };
 		22E60A3C2B8D81ED000F15E4 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E60A3B2B8D81ED000F15E4 /* main.swift */; };
 		22E60A442B8D821E000F15E4 /* constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E60A432B8D821E000F15E4 /* constants.swift */; };
 		22E60A462B8D839A000F15E4 /* subprocesses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E60A452B8D839A000F15E4 /* subprocesses.swift */; };
@@ -28,6 +29,7 @@
 
 /* Begin PBXFileReference section */
 		2217654C2EB7E68500A283BC /* openssl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = openssl.swift; sourceTree = "<group>"; };
+		2217654E2EB7E68600A283BC /* secureEnclave.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = secureEnclave.swift; sourceTree = "<group>"; };
 		22E60A382B8D81ED000F15E4 /* SDist */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SDist; sourceTree = BUILT_PRODUCTS_DIR; };
 		22E60A3B2B8D81ED000F15E4 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		22E60A422B8D81F9000F15E4 /* SDist.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SDist.entitlements; sourceTree = "<group>"; };
@@ -69,6 +71,7 @@
 				22E60A422B8D81F9000F15E4 /* SDist.entitlements */,
 				22E60A3B2B8D81ED000F15E4 /* main.swift */,
 				2217654C2EB7E68500A283BC /* openssl.swift */,
+				2217654E2EB7E68600A283BC /* secureEnclave.swift */,
 				22E60A432B8D821E000F15E4 /* constants.swift */,
 				22E60A472B8D858A000F15E4 /* commands.swift */,
 				22E60A452B8D839A000F15E4 /* subprocesses.swift */,
@@ -138,6 +141,7 @@
 				22E60A3C2B8D81ED000F15E4 /* main.swift in Sources */,
 				22E60A442B8D821E000F15E4 /* constants.swift in Sources */,
 				2217654D2EB7E68500A283BC /* openssl.swift in Sources */,
+				2217654F2EB7E68600A283BC /* secureEnclave.swift in Sources */,
 				22E60A482B8D858A000F15E4 /* commands.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -277,6 +281,8 @@
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				MACOSX_DEPLOYMENT_TARGET = 13;
+				PRODUCT_BUNDLE_IDENTIFIER = SDist;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = sdist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -290,6 +296,8 @@
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				MACOSX_DEPLOYMENT_TARGET = 13;
+				PRODUCT_BUNDLE_IDENTIFIER = SDist;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = sdist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};

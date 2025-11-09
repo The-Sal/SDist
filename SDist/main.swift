@@ -9,7 +9,7 @@ import Foundation
 
 
 
-let VERSION = 0.7
+let VERSION = 0.8
 
 print(WELCOME_MSG)
 print("Version: \(VERSION)")
@@ -67,6 +67,11 @@ var PASSWORD: String = "NONE"
 let arguments = CommandLine.arguments
 let PW_location = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".sdist")
 
+// Initialize Secure Enclave commands on macOS
+#if os(macOS)
+//se_check_biometry()
+addSecureEnclaveCommands()
+#endif
 
 func user_interface() throws{
     while true{
@@ -127,10 +132,12 @@ do{
         print("Generating docs...")
         let docs = generateDocs()
         print(docs)
-        
         exit(EXIT_SUCCESS)
     }
     
+    if arguments.contains(.cliPathArg){
+        print(arguments)
+    }
     
     if arguments.contains(.commandLineMode){
         PASSWORD = try arguments.findArgumentValue(.passwordArg)
