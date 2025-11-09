@@ -62,7 +62,7 @@ private struct SEFileMetadata: Codable {
     let timestamp: Int
     let originalFilename: String?
     let reserved: [String: String]
-
+    
     init(seKeyID: String, seKeyLabel: String, nonce: Data, originalFilename: String? = nil) {
         self.version = 1
         self.seKeyID = seKeyID
@@ -74,7 +74,28 @@ private struct SEFileMetadata: Codable {
         self.originalFilename = originalFilename
         self.reserved = [:]
     }
+
+    init(version: Int, seKeyID: String, seKeyLabel: String, algorithm: String, keyEncryptionAlgorithm: String, nonce: String, timestamp: Int, originalFilename: String?, reserved: [String : String]) {
+        self.version = version
+        self.seKeyID = seKeyID
+        self.seKeyLabel = seKeyLabel
+        self.algorithm = algorithm
+        self.keyEncryptionAlgorithm = keyEncryptionAlgorithm
+        self.nonce = nonce
+        self.timestamp = timestamp
+        self.originalFilename = originalFilename
+        self.reserved = reserved
+    }
 }
+
+
+
+
+private func stripMetadata(_ metadata: SEFileMetadata) -> SEFileMetadata{
+    // removes all metadata from `SEFileMetadata`. SEFileMetadata is kept for backwards compatibility
+    return .init(version: 2, seKeyID: metadata.seKeyID, seKeyLabel: metadata.seKeyLabel, algorithm: metadata.algorithm, keyEncryptionAlgorithm: metadata.keyEncryptionAlgorithm, nonce: metadata.nonce, timestamp: 0, originalFilename: nil, reserved: metadata.reserved)
+}
+
 
 // MARK: - Secure Enclave Key Management
 
@@ -331,12 +352,12 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
 
         // Build metadata
         let keyID = "sdist.se.\(label).\(UUID().uuidString)"
-        let metadata = SEFileMetadata(
+        let metadata = stripMetadata(SEFileMetadata(
             seKeyID: keyID,
             seKeyLabel: label,
             nonce: Data(nonceBytes),
             originalFilename: originalFilename
-        )
+        ))
 
         let encoder = JSONEncoder()
         let metadataJSON = try encoder.encode(metadata)
