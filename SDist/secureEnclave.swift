@@ -94,12 +94,27 @@ private class SEKeyManager {
 
     static func createKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
         do {
-            // Generate key in Secure Enclave
-            // Note: Using simplified API without explicit access control for compatibility
-            let key = try SecureEnclave.P256.KeyAgreement.PrivateKey()
+            // Create access control for the key
+            guard let accessControl = SecAccessControlCreateWithFlags(
+                kCFAllocatorDefault,
+                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                [.privateKeyUsage],  // Removed .biometryCurrentSet to avoid issues
+                nil
+            ) else {
+                throw SEEncryptionError.keyGenerationFailed("Failed to create access control")
+            }
 
-            // Store key reference in keychain
-            try storeKeyReference(key: key, label: label)
+            // Generate key in Secure Enclave with tag for later retrieval
+            let tag = "com.sdist.sekey.\(label)".data(using: .utf8)!
+
+            let key = try SecureEnclave.P256.KeyAgreement.PrivateKey(
+                compactRepresentable: false,
+                accessControl: accessControl,
+                authenticationContext: LAContext()
+            )
+
+            // Store key reference in keychain with proper attributes
+            try storeKeyReference(key: key, label: label, tag: tag)
 
             return key
         } catch {
@@ -108,41 +123,72 @@ private class SEKeyManager {
     }
 
     static func retrieveKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
+        let tag = "com.sdist.sekey.\(label)".data(using: .utf8)!
+
         let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: label,
-            kSecAttrService as String: "SDist-SE-Keys",
-            kSecReturnData as String: true
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: tag,
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecReturnRef as String: true
         ]
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
-        guard status == errSecSuccess, let keyData = item as? Data else {
-            throw SEEncryptionError.keyNotFound("Key with label '\(label)' not found in keychain")
+        guard status == errSecSuccess else {
+            throw SEEncryptionError.keyNotFound("Key with label '\(label)' not found in keychain (status: \(status))")
+        }
+
+        guard let keyRef = item else {
+            throw SEEncryptionError.keyNotFound("Key reference is nil")
+        }
+
+        // The keyRef is a SecKey, we need to convert it to our SE private key
+        // Since we can't directly cast, we need to use the key data approach
+        // For SE keys, we query with the tag and the system gives us back the reference
+
+        // Actually, for SE keys stored properly, we need to recreate using stored data
+        // Let's try getting the data representation that was stored
+        let dataQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: label,
+            kSecAttrService as String: "SDist-SE-KeyData",
+            kSecReturnData as String: true
+        ]
+
+        var dataItem: CFTypeRef?
+        let dataStatus = SecItemCopyMatching(dataQuery as CFDictionary, &dataItem)
+
+        guard dataStatus == errSecSuccess, let keyData = dataItem as? Data else {
+            throw SEEncryptionError.keyNotFound("Key data not found for label '\(label)'")
         }
 
         do {
             return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: keyData)
         } catch {
-            throw SEEncryptionError.keyNotFound("Failed to reconstruct key from keychain: \(error.localizedDescription)")
+            throw SEEncryptionError.keyNotFound("Failed to reconstruct key: \(error.localizedDescription)")
         }
     }
 
-    private static func storeKeyReference(key: SecureEnclave.P256.KeyAgreement.PrivateKey, label: String) throws {
+    private static func storeKeyReference(key: SecureEnclave.P256.KeyAgreement.PrivateKey, label: String, tag: Data) throws {
+        // Store the key's data representation for later retrieval
         let keyData = key.dataRepresentation
 
+        // Store as generic password for easy retrieval
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: label,
-            kSecAttrService as String: "SDist-SE-Keys",
-            kSecValueData as String: keyData
+            kSecAttrService as String: "SDist-SE-KeyData",
+            kSecValueData as String: keyData,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         if status != errSecSuccess && status != errSecDuplicateItem {
-            throw SEEncryptionError.keyGenerationFailed("Failed to store key reference: \(status)")
+            throw SEEncryptionError.keyGenerationFailed("Failed to store key data: \(status)")
         }
+
+        print("Key stored successfully with label: \(label)")
     }
 }
 
@@ -434,16 +480,23 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
 
         // Split ephemeral public key and encrypted AES key
         guard encryptedAESKeyFull.count > 65 else {
-            throw SEEncryptionError.decryptionFailed("Invalid encrypted key format")
+            throw SEEncryptionError.decryptionFailed("Invalid encrypted key format: got \(encryptedAESKeyFull.count) bytes, expected > 65")
         }
+
+        print("Debug: Encrypted key total size: \(encryptedAESKeyFull.count) bytes")
 
         let ephemeralPublicKeyData = encryptedAESKeyFull.prefix(65) // 65 bytes for P256 public key
         let wrappedKey = encryptedAESKeyFull.suffix(from: 65)
 
+        print("Debug: Ephemeral public key size: \(ephemeralPublicKeyData.count) bytes")
+        print("Debug: Wrapped key size: \(wrappedKey.count) bytes")
+
         // Reconstruct ephemeral public key
+        print("Reconstructing ephemeral public key...")
         let ephemeralPublicKey = try P256.KeyAgreement.PublicKey(rawRepresentation: ephemeralPublicKeyData)
 
         // Perform key agreement to get shared secret
+        print("Performing key agreement...")
         let sharedSecret = try sePrivateKey.sharedSecretFromKeyAgreement(with: ephemeralPublicKey)
 
         // Derive the same wrap key
@@ -489,12 +542,32 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
 
 // MARK: - Key Management Functions
 
+func se_cleanup_old_keys() {
+    print("Cleaning up old SE key storage...")
+
+    // Delete old generic password entries
+    let deleteQuery1: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "SDist-SE-Keys"
+    ]
+    SecItemDelete(deleteQuery1 as CFDictionary)
+
+    // Also clean up the new storage if needed
+    let deleteQuery2: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "SDist-SE-KeyData"
+    ]
+    SecItemDelete(deleteQuery2 as CFDictionary)
+
+    print("Cleanup complete. Please encrypt your file again with a fresh key.")
+}
+
 func se_list_keys() {
     print("Listing Secure Enclave keys in keychain...")
 
     let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: "SDist-SE-Keys",
+        kSecAttrService as String: "SDist-SE-KeyData",
         kSecMatchLimit as String: kSecMatchLimitAll,
         kSecReturnAttributes as String: true
     ]

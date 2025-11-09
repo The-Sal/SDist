@@ -211,6 +211,10 @@ func decrypt_asset_se(_ params: dynamicParams) throws {
 func list_se_keys(_ params: dynamicParams) throws {
     se_list_keys()
 }
+
+func cleanup_se_keys(_ params: dynamicParams) throws {
+    se_cleanup_old_keys()
+}
 #endif
 
 func list_all(_ params: dynamicParams) throws{
@@ -337,6 +341,10 @@ func addSecureEnclaveCommands() {
     COMMANDS["list-se-keys"] = [
         "function": list_se_keys,
         "description": "List Secure Enclave keys in keychain (macOS only)"
+    ]
+    COMMANDS["cleanup-se-keys"] = [
+        "function": cleanup_se_keys,
+        "description": "Clean up old SE key storage (run if having issues)"
     ]
 }
 #endif
