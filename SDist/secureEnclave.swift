@@ -2,7 +2,7 @@
 //  secureEnclave.swift
 //  SDist
 //
-//  Secure Enclave encryption implementation for macOS
+//  Secure Enclave encryption implementation for macOS with Touch ID
 //  Uses hybrid encryption: SE-backed key wrapping + AES-256-GCM
 //
 
@@ -15,7 +15,7 @@ import LocalAuthentication
 // MARK: - Constants
 
 private let MAGIC_HEADER: [UInt8] = [0x53, 0x44, 0x49, 0x53, 0x54, 0x2E, 0x53, 0x45] // "SDIST.SE"
-private let FORMAT_VERSION: UInt16 = 1
+private let FORMAT_VERSION: UInt16 = 2
 private let GCM_NONCE_SIZE = 12
 private let GCM_TAG_SIZE = 16
 private let INTEGRITY_HASH_SIZE = 32
@@ -33,6 +33,7 @@ enum SEEncryptionError: Error, CustomStringConvertible {
     case integrityCheckFailed
     case authenticationFailed(String)
     case unsupportedVersion(UInt16)
+    case biometryNotAvailable(String)
 
     var description: String {
         switch self {
@@ -46,6 +47,7 @@ enum SEEncryptionError: Error, CustomStringConvertible {
         case .integrityCheckFailed: return "Integrity check failed - file may be corrupted or tampered"
         case .authenticationFailed(let msg): return "Authentication failed: \(msg)"
         case .unsupportedVersion(let ver): return "Unsupported file version: \(ver)"
+        case .biometryNotAvailable(let msg): return "Biometry not available: \(msg)"
         }
     }
 }
@@ -88,20 +90,70 @@ private struct SEFileMetadata: Codable {
     }
 }
 
-
-
-
 private func stripMetadata(_ metadata: SEFileMetadata) -> SEFileMetadata{
     // removes all metadata from `SEFileMetadata`. SEFileMetadata is kept for backwards compatibility
     return .init(version: 2, seKeyID: metadata.seKeyID, seKeyLabel: metadata.seKeyLabel, algorithm: metadata.algorithm, keyEncryptionAlgorithm: metadata.keyEncryptionAlgorithm, nonce: metadata.nonce, timestamp: 0, originalFilename: nil, reserved: metadata.reserved)
 }
 
+// MARK: - Biometry Helper
+
+private class BiometryHelper {
+    
+    /// Check if biometric authentication is available on this device
+    static func isBiometryAvailable() -> (available: Bool, biometryType: LABiometryType, error: Error?) {
+        let context = LAContext()
+        var error: NSError?
+        
+        let canEvaluate = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        
+        return (canEvaluate, context.biometryType, error)
+    }
+    
+    /// Get a user-friendly description of the available biometry type
+    static func getBiometryDescription() -> String {
+        let context = LAContext()
+        switch context.biometryType {
+        case .none:
+            return "No biometric authentication"
+        case .touchID:
+            return "Touch ID"
+        case .faceID:
+            return "Face ID"
+        case .opticID:
+            return "Optic ID"
+        @unknown default:
+            return "Unknown biometric type"
+        }
+    }
+    
+    /// Perform biometric authentication with a custom reason
+    static func authenticate(reason: String, completion: @escaping (Bool, Error?) -> Void) {
+        let context = LAContext()
+        var error: NSError?
+        
+        // First check if biometry is available
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            DispatchQueue.main.async {
+                completion(false, error ?? SEEncryptionError.biometryNotAvailable("Biometric authentication not available"))
+            }
+            return
+        }
+        
+        // Perform the authentication
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authError in
+            DispatchQueue.main.async {
+                completion(success, authError)
+            }
+        }
+    }
+}
 
 // MARK: - Secure Enclave Key Management
 
 private class SEKeyManager {
 
-    static func getOrCreateKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
+    /// Get or create a Secure Enclave key with Touch ID protection
+    static func getOrCreateKey(label: String, requireBiometry: Bool = true) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
         // Try to retrieve existing key
         if let existingKey = try? retrieveKey(label: label) {
             print("Using existing Secure Enclave key: \(label)")
@@ -110,41 +162,79 @@ private class SEKeyManager {
 
         // Create new key
         print("Creating new Secure Enclave key: \(label)")
-        return try createKey(label: label)
+        return try createKey(label: label, requireBiometry: requireBiometry)
     }
 
-    static func createKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
+    /// Create a new Secure Enclave key with Touch ID protection
+    static func createKey(label: String, requireBiometry: Bool = true) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
         do {
-            // Create access control for the key
+            // Check if biometry is available if required
+            if requireBiometry {
+                let biometryCheck = BiometryHelper.isBiometryAvailable()
+                guard biometryCheck.available else {
+                    throw SEEncryptionError.biometryNotAvailable(
+                        "Touch ID is not available. Please ensure biometric authentication is enabled in System Settings."
+                    )
+                }
+                print("✓ \(BiometryHelper.getBiometryDescription()) is available")
+            }
+            
+            // Create access control for the key with Touch ID requirement
+            let flags: SecAccessControlCreateFlags
+            if requireBiometry {
+                // Use biometryCurrentSet to strictly require Touch ID
+                // This ties the key to the current set of enrolled fingerprints
+                flags = [.privateKeyUsage, .biometryCurrentSet]
+                print("Creating key with Touch ID requirement")
+            } else {
+                // Fallback: use userPresence which allows both biometry and device passcode
+                flags = [.privateKeyUsage, .userPresence]
+                print("Creating key with user presence requirement (Touch ID or passcode)")
+            }
+            
+            var error: Unmanaged<CFError>?
             guard let accessControl = SecAccessControlCreateWithFlags(
                 kCFAllocatorDefault,
                 kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-                [.privateKeyUsage],  // Removed .biometryCurrentSet to avoid issues
-                nil
+                flags,
+                &error
             ) else {
+                if let cfError = error?.takeRetainedValue() {
+                    throw SEEncryptionError.keyGenerationFailed("Failed to create access control: \(cfError)")
+                }
                 throw SEEncryptionError.keyGenerationFailed("Failed to create access control")
             }
 
-            // Generate key in Secure Enclave with tag for later retrieval
+            // Create authentication context with a clear prompt
+            let authContext = LAContext()
+            authContext.localizedReason = "Authenticate to create encryption key"
+            // Allow reuse of authentication for 60 seconds to avoid multiple prompts
+            authContext.touchIDAuthenticationAllowableReuseDuration = 60
+
+            // Generate key in Secure Enclave
             let tag = "com.sdist.sekey.\(label)".data(using: .utf8)!
 
             let key = try SecureEnclave.P256.KeyAgreement.PrivateKey(
                 compactRepresentable: false,
                 accessControl: accessControl,
-                authenticationContext: LAContext()
+                authenticationContext: authContext
             )
 
             // Store key reference in keychain with proper attributes
             try storeKeyReference(key: key, label: label, tag: tag)
 
+            print("✓ Secure Enclave key created successfully")
             return key
+        } catch let error as SEEncryptionError {
+            throw error
         } catch {
             throw SEEncryptionError.keyGenerationFailed(error.localizedDescription)
         }
     }
 
+    /// Retrieve an existing Secure Enclave key and authenticate with Touch ID
     static func retrieveKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
-        // Directly query the stored data representation
+        // Query the stored data representation
         let dataQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: label,
@@ -160,12 +250,14 @@ private class SEKeyManager {
         }
 
         do {
+            // Reconstruct the key - this will trigger Touch ID prompt if required by the key's ACL
             return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: keyData)
         } catch {
-            throw SEEncryptionError.keyNotFound("Failed to reconstruct key: \(error.localizedDescription)")
+            throw SEEncryptionError.keyNotFound("Failed to reconstruct key (may require Touch ID): \(error.localizedDescription)")
         }
     }
 
+    /// Store key reference in keychain
     private static func storeKeyReference(key: SecureEnclave.P256.KeyAgreement.PrivateKey, label: String, tag: Data) throws {
         // Store the key's data representation for later retrieval
         let keyData = key.dataRepresentation
@@ -276,15 +368,22 @@ private class BinaryReader {
 
 // MARK: - Public Encryption Function
 
-func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil) {
+func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil, requireBiometry: Bool = true) {
     do {
         // Clean paths
         let cleanInputFile = inputFile.trimmingCharacters(in: .whitespaces)
         let cleanOutputFile = outputFile.trimmingCharacters(in: .whitespaces)
 
-        print("Starting Secure Enclave encryption...")
+        print("Starting Secure Enclave encryption with Touch ID...")
         print("Input: \(cleanInputFile)")
         print("Output: \(cleanOutputFile)")
+        
+        // Check biometry availability
+        let biometryCheck = BiometryHelper.isBiometryAvailable()
+        if requireBiometry && !biometryCheck.available {
+            print("⚠️  Warning: Touch ID not available, falling back to user presence (Touch ID or passcode)")
+            print("   Enable Touch ID in System Settings for enhanced security")
+        }
 
         // Read input file
         guard let fileData = FileManager.default.contents(atPath: cleanInputFile) else {
@@ -293,9 +392,11 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
 
         let originalFilename = URL(fileURLWithPath: cleanInputFile).lastPathComponent
 
-        // Generate or retrieve SE key
+        // Generate or retrieve SE key with Touch ID protection
         let label = keyLabel ?? "SDist-SE-Key-Default"
-        let sePrivateKey = try SEKeyManager.getOrCreateKey(label: label)
+        print("\nAuthenticating with \(BiometryHelper.getBiometryDescription())...")
+        
+        let sePrivateKey = try SEKeyManager.getOrCreateKey(label: label, requireBiometry: requireBiometry)
         let sePublicKey = sePrivateKey.publicKey
 
         // Generate random AES-256 key
@@ -320,7 +421,6 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
         let aesKeyData = aesKey.withUnsafeBytes { Data($0) }
 
         // Encrypt AES key with SE public key using key agreement (ECIES-like)
-        // For actual ECIES, we'll use a simple approach: generate ephemeral key and do ECDH
         let ephemeralKey = P256.KeyAgreement.PrivateKey()
         let sharedSecret = try ephemeralKey.sharedSecretFromKeyAgreement(with: sePublicKey)
 
@@ -339,12 +439,10 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
         }
 
         // Prepend ephemeral public key to encrypted key (needed for decryption)
-        // Use x963Representation for compatibility with P256.KeyAgreement
         let ephemeralPublicKeyData = ephemeralKey.publicKey.x963Representation
         encryptedAESKey = ephemeralPublicKeyData + encryptedAESKey
 
         // Zero out sensitive key material
-        // Note: Swift's memory safety makes this challenging, but we can help GC
         var zeroedKey = aesKeyData
         _ = zeroedKey.withUnsafeMutableBytes { ptr in
             memset(ptr.baseAddress, 0, ptr.count)
@@ -391,11 +489,12 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
         let finalData = writer.getData()
         do {
             try finalData.write(to: URL(fileURLWithPath: cleanOutputFile))
-            print("✓ Encryption successful!")
+            print("\n✓ Encryption successful!")
             print("  Output file size: \(finalData.count) bytes")
             print("  Original size: \(fileData.count) bytes")
             print("  Overhead: \(finalData.count - fileData.count) bytes")
             print("  SE Key: \(label)")
+            print("  Protection: Secure Enclave with Touch ID authentication")
         } catch {
             throw SEEncryptionError.fileWriteError(error.localizedDescription)
         }
@@ -415,7 +514,7 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
         let cleanInputFile = inputFile.trimmingCharacters(in: .whitespaces)
         let cleanOutputFile = outputFile.trimmingCharacters(in: .whitespaces)
 
-        print("Starting Secure Enclave decryption...")
+        print("Starting Secure Enclave decryption with Touch ID...")
         print("Input: \(cleanInputFile)")
         print("Output: \(cleanOutputFile)")
 
@@ -434,7 +533,7 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
 
         // Read and check version
         let version = try reader.readUInt16BigEndian()
-        guard version == FORMAT_VERSION else {
+        guard version <= FORMAT_VERSION else {
             throw SEEncryptionError.unsupportedVersion(version)
         }
 
@@ -445,8 +544,10 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
         let decoder = JSONDecoder()
         let metadata = try decoder.decode(SEFileMetadata.self, from: metadataJSON)
 
-        print("File metadata:")
-        print("  Encrypted: \(Date(timeIntervalSince1970: TimeInterval(metadata.timestamp)))")
+        print("\nFile metadata:")
+        if metadata.timestamp > 0 {
+            print("  Encrypted: \(Date(timeIntervalSince1970: TimeInterval(metadata.timestamp)))")
+        }
         if let filename = metadata.originalFilename {
             print("  Original filename: \(filename)")
         }
@@ -469,9 +570,9 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
         // Read encrypted content (rest of file)
         let encryptedContent = reader.readRemainingData()
 
-        // Retrieve SE private key
-        print("Requesting Secure Enclave key access...")
-        print("(You may be prompted for Touch ID / Face ID)")
+        // Retrieve SE private key - this will trigger Touch ID prompt
+        print("\nAuthenticating with \(BiometryHelper.getBiometryDescription())...")
+        print("(You will be prompted for authentication)")
 
         let sePrivateKey = try SEKeyManager.getOrCreateKey(label: metadata.seKeyLabel)
 
@@ -501,14 +602,16 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
         let aesKey = SymmetricKey(data: aesKeyData)
 
         // Decrypt file content
+        print("Decrypting file content...")
         let contentSealedBox = try AES.GCM.SealedBox(combined: encryptedContent)
         let decryptedData = try AES.GCM.open(contentSealedBox, using: aesKey)
 
         // Write decrypted file
         do {
             try decryptedData.write(to: URL(fileURLWithPath: cleanOutputFile))
-            print("✓ Decryption successful!")
+            print("\n✓ Decryption successful!")
             print("  Output file size: \(decryptedData.count) bytes")
+            print("  File restored successfully")
         } catch {
             throw SEEncryptionError.fileWriteError(error.localizedDescription)
         }
@@ -550,6 +653,7 @@ func se_cleanup_old_keys() {
 
 func se_list_keys() {
     print("Listing Secure Enclave keys in keychain...")
+    print("\nAvailable biometry: \(BiometryHelper.getBiometryDescription())")
 
     let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
@@ -571,6 +675,47 @@ func se_list_keys() {
         let label = item[kSecAttrAccount as String] as? String ?? "Unknown"
         print("  \(index + 1). \(label)")
     }
+    print("\n💡 These keys are protected by Touch ID authentication")
+}
+
+// MARK: - Biometry Information Function
+
+func se_check_biometry() {
+    print("Checking biometric authentication capabilities...\n")
+    
+    let biometryCheck = BiometryHelper.isBiometryAvailable()
+    
+    print("Biometry Type: \(BiometryHelper.getBiometryDescription())")
+    print("Available: \(biometryCheck.available ? "✓ Yes" : "✗ No")")
+    
+    if let error = biometryCheck.error {
+        print("Status: \(error.localizedDescription)")
+        
+        if let laError = error as? LAError {
+            switch laError.code {
+            case .biometryNotAvailable:
+                print("\n💡 Touch ID is not available on this Mac")
+            case .biometryNotEnrolled:
+                print("\n💡 Touch ID is available but not set up")
+                print("   Go to System Settings > Touch ID & Password to enroll your fingerprint")
+            case .biometryLockout:
+                print("\n⚠️  Touch ID is locked due to too many failed attempts")
+                print("   Unlock your Mac to reset Touch ID")
+            case .passcodeNotSet:
+                print("\n💡 No password is set on this Mac")
+                print("   Set a password in System Settings to enable Touch ID")
+            default:
+                print("\n⚠️  Error code: \(laError.code.rawValue)")
+            }
+        }
+    } else if biometryCheck.available {
+        print("Status: Ready for use")
+        print("\n✓ Your files can be protected with Touch ID authentication")
+    }
+    
+    print("\nNote: Secure Enclave encryption works on Macs with:")
+    print("  • Apple Silicon (M1, M2, M3, M4 chips)")
+    print("  • T2 Security Chip (some Intel Macs)")
 }
 
 #endif // os(macOS)

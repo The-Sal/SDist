@@ -69,6 +69,7 @@ let PW_location = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 
 // Initialize Secure Enclave commands on macOS
 #if os(macOS)
+//se_check_biometry()
 addSecureEnclaveCommands()
 #endif
 
@@ -131,10 +132,12 @@ do{
         print("Generating docs...")
         let docs = generateDocs()
         print(docs)
-        
         exit(EXIT_SUCCESS)
     }
     
+    if arguments.contains(.cliPathArg){
+        print(arguments)
+    }
     
     if arguments.contains(.commandLineMode){
         PASSWORD = try arguments.findArgumentValue(.passwordArg)

@@ -23,6 +23,7 @@ enum CommandLineArgs: String {
     case functionArg = "-f"
     case argumentsArg = "-a" // everything after this is an argument
     case helpArg = "-h"
+    case cliPathArg = "--cli-path"
 }
 
 let documentationForFlags: [String: String] = [
