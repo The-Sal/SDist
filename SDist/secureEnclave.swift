@@ -123,32 +123,7 @@ private class SEKeyManager {
     }
 
     static func retrieveKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
-        let tag = "com.sdist.sekey.\(label)".data(using: .utf8)!
-
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecAttrApplicationTag as String: tag,
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecReturnRef as String: true
-        ]
-
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-        guard status == errSecSuccess else {
-            throw SEEncryptionError.keyNotFound("Key with label '\(label)' not found in keychain (status: \(status))")
-        }
-
-        guard let keyRef = item else {
-            throw SEEncryptionError.keyNotFound("Key reference is nil")
-        }
-
-        // The keyRef is a SecKey, we need to convert it to our SE private key
-        // Since we can't directly cast, we need to use the key data approach
-        // For SE keys, we query with the tag and the system gives us back the reference
-
-        // Actually, for SE keys stored properly, we need to recreate using stored data
-        // Let's try getting the data representation that was stored
+        // Directly query the stored data representation
         let dataQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: label,
@@ -160,7 +135,7 @@ private class SEKeyManager {
         let dataStatus = SecItemCopyMatching(dataQuery as CFDictionary, &dataItem)
 
         guard dataStatus == errSecSuccess, let keyData = dataItem as? Data else {
-            throw SEEncryptionError.keyNotFound("Key data not found for label '\(label)'")
+            throw SEEncryptionError.keyNotFound("Key data not found for label '\(label)' (status: \(dataStatus))")
         }
 
         do {
@@ -343,7 +318,8 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
         }
 
         // Prepend ephemeral public key to encrypted key (needed for decryption)
-        let ephemeralPublicKeyData = ephemeralKey.publicKey.rawRepresentation
+        // Use x963Representation for compatibility with P256.KeyAgreement
+        let ephemeralPublicKeyData = ephemeralKey.publicKey.x963Representation
         encryptedAESKey = ephemeralPublicKeyData + encryptedAESKey
 
         // Zero out sensitive key material
@@ -493,7 +469,7 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
 
         // Reconstruct ephemeral public key
         print("Reconstructing ephemeral public key...")
-        let ephemeralPublicKey = try P256.KeyAgreement.PublicKey(rawRepresentation: ephemeralPublicKeyData)
+        let ephemeralPublicKey = try P256.KeyAgreement.PublicKey(x963Representation: ephemeralPublicKeyData)
 
         // Perform key agreement to get shared secret
         print("Performing key agreement...")
