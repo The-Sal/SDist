@@ -140,7 +140,11 @@ do{
     }
     
     if arguments.contains(.commandLineMode){
-        PASSWORD = try arguments.findArgumentValue(.passwordArg)
+        if let pw = try? load_password(){
+            PASSWORD = pw
+        }else{
+            PASSWORD = try arguments.findArgumentValue(.passwordArg)
+        }
         try commandLineMode()
     }else{
         if let pw = try? load_password(){

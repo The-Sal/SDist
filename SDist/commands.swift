@@ -14,46 +14,44 @@ fileprivate var paramIdsCalls: [
 
 typealias dynamicParams = [String: String]
 
-
 extension dynamicParams{
+    private static var orderedKeys: [String: [String]] = [:]
+    
     func getKey(_ string: String, alternative_method: () -> (String)) -> String{
+        let specialId = Array(self.keys).sorted().joined() // Use sorted for consistent ID
         
-        let specialId = Array(self.keys).description
+        // Get the ordered keys for this params instance
+        guard let orderedKeys = dynamicParams.orderedKeys[specialId] else {
+            return alternative_method()
+        }
         
-        
-        if Array(self.keys).contains(string){
+        if self.keys.contains(string){
             return self[string]!
         }else{
-            if let firstKey = self.keys.first{
-                if let value = self[firstKey]{
-                    if value == special{
-                        if let pos = paramIdsCalls[specialId]{
-                            paramIdsCalls[specialId] = pos + 1
-                            return Array(self.keys)[pos + 1]
-                        }else{
-                            paramIdsCalls[specialId] = 0
-                            return Array(self.keys)[0]
-                        }
-                    }
+            if let firstKey = orderedKeys.first, self[firstKey] == special{
+                if let pos = paramIdsCalls[specialId]{
+                    paramIdsCalls[specialId] = pos + 1
+                    return orderedKeys[pos + 1]
+                }else{
+                    paramIdsCalls[specialId] = 0
+                    return orderedKeys[0]
                 }
             }
-            
         }
         
         return alternative_method()
     }
+    
     init(fromArray: [String]){
-        
         self.init()
+        let specialId = fromArray.sorted().joined()
+        dynamicParams.orderedKeys[specialId] = fromArray // Store the original order!
+        
         for item in fromArray{
             self[item] = special
         }
-        
-        
     }
 }
-
-
 
 
 let tempDir = URL(filePath: NSTemporaryDirectory())
@@ -197,8 +195,18 @@ func encrypt_asset_se(_ params: dynamicParams) throws {
         print("Warning: per SDist SE encryption spec, the file will be saved with a .enc.se extension.")
         dst.append(".enc.se")
     }
-    let keyLabel = params.getKey("keyLabel", alternative_method: askUserWrapper(question: "SE Key Label (optional, press enter for default):"))
-    let finalKeyLabel = keyLabel.isEmpty ? nil : keyLabel
+    let keyLabel = params.getKey("keyLabel", alternative_method: askUserWrapper(question: "SE Key Label (optional, press enter or ? for default):"))
+    
+    let finalKeyLabel: String?
+    switch keyLabel {
+    case "":
+        finalKeyLabel = nil
+    case "?":
+        finalKeyLabel = nil
+    default:
+        finalKeyLabel = keyLabel
+    }
+
     se_encrypt(fp, outputFile: dst, keyLabel: finalKeyLabel)
 }
 
