@@ -333,10 +333,8 @@ This document specifies the binary file format for SDist Secure Enclave (SE) enc
 - **Metadata encryption**: Optional encrypted metadata section
 - **Compression support**: Transparent zlib/zstd before encryption
 
-### Version 2.0 (Proposed)
-- **Chunked encryption**: Stream large files in 64MB chunks
-- **Multi-key support**: Encrypt for multiple SE keys (shared files)
-- **Forward secrecy**: Ephemeral key agreement per file
+### Version 2.0 
+- **Metdata**: Strips all metadata beyond what's required for the keys
 
 ---
 
