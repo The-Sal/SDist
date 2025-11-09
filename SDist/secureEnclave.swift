@@ -459,20 +459,11 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
             throw SEEncryptionError.decryptionFailed("Invalid encrypted key format: got \(encryptedAESKeyFull.count) bytes, expected > 65")
         }
 
-        print("Debug: Encrypted key total size: \(encryptedAESKeyFull.count) bytes")
-
         let ephemeralPublicKeyData = encryptedAESKeyFull.prefix(65) // 65 bytes for P256 public key
         let wrappedKey = encryptedAESKeyFull.suffix(from: 65)
 
-        print("Debug: Ephemeral public key size: \(ephemeralPublicKeyData.count) bytes")
-        print("Debug: Wrapped key size: \(wrappedKey.count) bytes")
-
-        // Reconstruct ephemeral public key
-        print("Reconstructing ephemeral public key...")
+        // Reconstruct ephemeral public key and perform key agreement
         let ephemeralPublicKey = try P256.KeyAgreement.PublicKey(x963Representation: ephemeralPublicKeyData)
-
-        // Perform key agreement to get shared secret
-        print("Performing key agreement...")
         let sharedSecret = try sePrivateKey.sharedSecretFromKeyAgreement(with: ephemeralPublicKey)
 
         // Derive the same wrap key
@@ -484,13 +475,11 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
         )
 
         // Decrypt AES key
-        print("Unwrapping AES key...")
         let sealedBox = try AES.GCM.SealedBox(combined: wrappedKey)
         let aesKeyData = try AES.GCM.open(sealedBox, using: wrapKey)
         let aesKey = SymmetricKey(data: aesKeyData)
 
         // Decrypt file content
-        print("Decrypting file content...")
         let contentSealedBox = try AES.GCM.SealedBox(combined: encryptedContent)
         let decryptedData = try AES.GCM.open(contentSealedBox, using: aesKey)
 
