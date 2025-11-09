@@ -94,25 +94,9 @@ private class SEKeyManager {
 
     static func createKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
         do {
-            // Create authentication context
-            let context = LAContext()
-            context.localizedReason = "Create encryption key in Secure Enclave"
-
-            // Create access control for biometric authentication
-            guard let accessControl = SecAccessControlCreateWithFlags(
-                kCFAllocatorDefault,
-                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-                [.privateKeyUsage, .biometryCurrentSet],
-                nil
-            ) else {
-                throw SEEncryptionError.keyGenerationFailed("Failed to create access control")
-            }
-
             // Generate key in Secure Enclave
-            let key = try SecureEnclave.P256.KeyAgreement.PrivateKey(
-                accessControl: accessControl,
-                authenticationContext: context
-            )
+            // Note: Using simplified API without explicit access control for compatibility
+            let key = try SecureEnclave.P256.KeyAgreement.PrivateKey()
 
             // Store key reference in keychain
             try storeKeyReference(key: key, label: label)
@@ -125,33 +109,34 @@ private class SEKeyManager {
 
     static func retrieveKey(label: String) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
         let query: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecAttrLabel as String: label,
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecReturnRef as String: true
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: label,
+            kSecAttrService as String: "SDist-SE-Keys",
+            kSecReturnData as String: true
         ]
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
-        guard status == errSecSuccess, let keyRef = item else {
+        guard status == errSecSuccess, let keyData = item as? Data else {
             throw SEEncryptionError.keyNotFound("Key with label '\(label)' not found in keychain")
         }
 
         do {
-            return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: Data())
+            return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: keyData)
         } catch {
-            // Fallback: create new key if retrieval fails
-            throw SEEncryptionError.keyNotFound("Failed to reconstruct key from keychain")
+            throw SEEncryptionError.keyNotFound("Failed to reconstruct key from keychain: \(error.localizedDescription)")
         }
     }
 
     private static func storeKeyReference(key: SecureEnclave.P256.KeyAgreement.PrivateKey, label: String) throws {
+        let keyData = key.dataRepresentation
+
         let addQuery: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecAttrLabel as String: label,
-            kSecAttrApplicationTag as String: label.data(using: .utf8)!,
-            kSecValueRef as String: key
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: label,
+            kSecAttrService as String: "SDist-SE-Keys",
+            kSecValueData as String: keyData
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
@@ -318,7 +303,7 @@ func se_encrypt(_ inputFile: String, outputFile: String, keyLabel: String? = nil
         // Zero out sensitive key material
         // Note: Swift's memory safety makes this challenging, but we can help GC
         var zeroedKey = aesKeyData
-        zeroedKey.withUnsafeMutableBytes { ptr in
+        _ = zeroedKey.withUnsafeMutableBytes { ptr in
             memset(ptr.baseAddress, 0, ptr.count)
         }
 
@@ -491,7 +476,7 @@ func se_decrypt(_ inputFile: String, outputFile: String) {
 
         // Zero out sensitive data
         var zeroedKey = aesKeyData
-        zeroedKey.withUnsafeMutableBytes { ptr in
+        _ = zeroedKey.withUnsafeMutableBytes { ptr in
             memset(ptr.baseAddress, 0, ptr.count)
         }
 
@@ -508,8 +493,8 @@ func se_list_keys() {
     print("Listing Secure Enclave keys in keychain...")
 
     let query: [String: Any] = [
-        kSecClass as String: kSecClassKey,
-        kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "SDist-SE-Keys",
         kSecMatchLimit as String: kSecMatchLimitAll,
         kSecReturnAttributes as String: true
     ]
@@ -524,7 +509,7 @@ func se_list_keys() {
 
     print("Found \(keyItems.count) key(s):")
     for (index, item) in keyItems.enumerated() {
-        let label = item[kSecAttrLabel as String] as? String ?? "Unknown"
+        let label = item[kSecAttrAccount as String] as? String ?? "Unknown"
         print("  \(index + 1). \(label)")
     }
 }
