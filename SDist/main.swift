@@ -67,6 +67,10 @@ var PASSWORD: String = "NONE"
 let arguments = CommandLine.arguments
 let PW_location = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".sdist")
 
+// Initialize Secure Enclave commands on macOS
+#if os(macOS)
+addSecureEnclaveCommands()
+#endif
 
 func user_interface() throws{
     while true{

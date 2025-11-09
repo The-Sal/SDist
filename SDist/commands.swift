@@ -189,6 +189,30 @@ func local_decrypt(_ params: dynamicParams) throws {
     openssl_decrypt(fp, outputFile: dst)
 }
 
+#if os(macOS)
+func encrypt_asset_se(_ params: dynamicParams) throws {
+    let fp = params.getKey("path", alternative_method: askUserWrapper(question: "Filepath:")).replacingOccurrences(of: "\\ ", with: " ")
+    var dst = params.getKey("dest", alternative_method: askUserWrapper(question: "Destination:"))
+    if !dst.contains(".enc.se") {
+        print("Warning: per SDist SE encryption spec, the file will be saved with a .enc.se extension.")
+        dst.append(".enc.se")
+    }
+    let keyLabel = params.getKey("keyLabel", alternative_method: askUserWrapper(question: "SE Key Label (optional, press enter for default):"))
+    let finalKeyLabel = keyLabel.isEmpty ? nil : keyLabel
+    se_encrypt(fp, outputFile: dst, keyLabel: finalKeyLabel)
+}
+
+func decrypt_asset_se(_ params: dynamicParams) throws {
+    let fp = params.getKey("path", alternative_method: askUserWrapper(question: "Filepath:")).replacingOccurrences(of: "\\ ", with: " ")
+    let dst = params.getKey("dest", alternative_method: askUserWrapper(question: "Destination:"))
+    se_decrypt(fp, outputFile: dst)
+}
+
+func list_se_keys(_ params: dynamicParams) throws {
+    se_list_keys()
+}
+#endif
+
 func list_all(_ params: dynamicParams) throws{
     let response = GET(url: .init(format: Endpoints.allLocation, PASSWORD))
     if try !_check_response(response){
@@ -253,7 +277,7 @@ func decrypt_file(_ filePath: String, file: String){
     openssl_decrypt(filePath, outputFile: file)
 }
 
-let COMMANDS = [
+var COMMANDS: [String: [String: Any]] = [
     "get": [
         "function": get_location,
         "description": "Get the URL of an asset"
@@ -278,26 +302,44 @@ let COMMANDS = [
         "function": exit,
         "description": "Exit the CLI"
     ],
-    
+
     "save-password": [
         "function": save_password,
         "description": "Save a password to file"
     ],
-    
+
     "rm-asset": [
         "function": remove_location,
         "description": "Remove an asset from the manifest"
     ],
     "encrypt": [
         "function": encrypt_asset,
-        "description": "Locally encrypt a file using SDist encryption spec"
+        "description": "Locally encrypt a file using SDist encryption spec (OpenSSL)"
     ],
-    
+
     "decrypt": [
         "function": local_decrypt,
-        "description": "Locally Decrypt a file using SDist encryption spec"
+        "description": "Locally Decrypt a file using SDist encryption spec (OpenSSL)"
     ]
 ]
+
+#if os(macOS)
+// Add Secure Enclave commands (macOS only)
+func addSecureEnclaveCommands() {
+    COMMANDS["encrypt-se"] = [
+        "function": encrypt_asset_se,
+        "description": "Encrypt a file using Secure Enclave (macOS only)"
+    ]
+    COMMANDS["decrypt-se"] = [
+        "function": decrypt_asset_se,
+        "description": "Decrypt a Secure Enclave encrypted file (macOS only)"
+    ]
+    COMMANDS["list-se-keys"] = [
+        "function": list_se_keys,
+        "description": "List Secure Enclave keys in keychain (macOS only)"
+    ]
+}
+#endif
 
 
 func showDocumentation(docs: String) {
