@@ -24,6 +24,7 @@ enum CommandLineArgs: String {
     case argumentsArg = "-a" // everything after this is an argument
     case helpArg = "-h"
     case cliPathArg = "--cli-path"
+    case errorOnNoParamsError = "--args-only"
 }
 
 let documentationForFlags: [String: String] = [
@@ -31,7 +32,8 @@ let documentationForFlags: [String: String] = [
     CommandLineArgs.passwordArg.rawValue: "The password to use",
     CommandLineArgs.functionArg.rawValue: "The function to run",
     CommandLineArgs.argumentsArg.rawValue: "The arguments for the function, everything after this is an argument",
-    CommandLineArgs.helpArg.rawValue: "Show this help message"
+    CommandLineArgs.helpArg.rawValue: "Show this help message",
+    CommandLineArgs.errorOnNoParamsError.rawValue: "If not enough parameters are given in -a, exit with an error otherwise fallbacks to interactive mode"
 ]
 
 

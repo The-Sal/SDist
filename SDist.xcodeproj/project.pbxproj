@@ -71,10 +71,10 @@
 				22E60A422B8D81F9000F15E4 /* SDist.entitlements */,
 				22E60A3B2B8D81ED000F15E4 /* main.swift */,
 				2217654C2EB7E68500A283BC /* openssl.swift */,
-				2217654E2EB7E68600A283BC /* secureEnclave.swift */,
 				22E60A432B8D821E000F15E4 /* constants.swift */,
 				22E60A472B8D858A000F15E4 /* commands.swift */,
 				22E60A452B8D839A000F15E4 /* subprocesses.swift */,
+				2217654E2EB7E68600A283BC /* secureEnclave.swift */,
 			);
 			path = SDist;
 			sourceTree = "<group>";

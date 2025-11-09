@@ -70,23 +70,14 @@ let PW_location = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 // Initialize Secure Enclave commands on macOS
 #if os(macOS)
 //se_check_biometry()
-addSecureEnclaveCommands()
+addMacOSOnly()
 #endif
 
-func user_interface() throws{
-    while true{
-        let cmds = COMMANDS.sorted(by: {
-            let l1 = $0.key.count + ($0.value["description"] as! String).count
-            let l2 = $1.key.count + ($1.value["description"] as! String).count
-            
-            return l1 < l2
-        })
 
-        print("Commands:")
-        for command in cmds {
-            print("\t\(command.key): \(command.value["description"]!)")
-        }
-        
+
+func user_interface() throws{
+    help(dynamicParams())
+    while true{
         print("Ener a command: ", terminator: "")
         let cmd = readLine()!
         
@@ -102,7 +93,7 @@ func user_interface() throws{
             let showOperation = String(repeating: "*", count: Int(Double(getTerminalColumns() ?? 100) * 0.5))
             print(showOperation)
             try function(.init())
-            print(showOperation)
+            if cmd != "clear"{ print(showOperation) }
         }
     }
 }
