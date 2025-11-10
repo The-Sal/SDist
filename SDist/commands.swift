@@ -289,8 +289,6 @@ func install_app(_ params: dynamicParams) throws{
     if let app_real_name = try FileManager.default.contentsOfDirectory(atPath: random_directory.path(percentEncoded: false)).first{
         let app_name = random_directory.appending(path: app_real_name)
         let app_file_destination = URL(filePath: current_directory).appending(path: app_real_name)
-        
-        
         print("Setting Permissions")
         for var cmd in cmds {
             let process = Process()
@@ -339,29 +337,13 @@ func install_app_from_encrypted_zip(_ params: dynamicParams) throws {
     fm.changeCurrentDirectoryPath(random_directory.path(percentEncoded: false))
     print("Temporary Directory: \(random_directory.path(percentEncoded: false))")
     unzip(tempFilePath: dest)
-    let cmds = [
-        ["xattr", "-d", "com.apple.quarantine"],
-        ["chmod", "+x"],
-        ["xattr", "-cr"]
-    ]
+    if fm.fileExists(atPath: "./__MACOSX"){
+        try fm.removeItem(atPath: "./__MACOSX")
+    }
     let files = try fm.contentsOfDirectory(atPath: ".")
     print("Available Files: \(files)")
-    rm("__MACOSX")
-    let tempApp = try fm.contentsOfDirectory(atPath: ".").first!
-    print("Setting Permissions")
-    for var cmd in cmds {
-        let process = Process()
-        process.executableURL = .init(filePath: "/usr/bin/env")
-        cmd.append(tempApp)
-        process.arguments = cmd
-        do{
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            print("Failed: \(cmd), error: \(error)")
-        }
-    }
-    
+    let tempApp = fm.currentDirectoryPath.appending("/" + (try fm.contentsOfDirectory(atPath: ".").first!))
+    try fixApplication(appURL: .init(filePath: tempApp))
     mv(tempApp, destination: cwd)
     fm.changeCurrentDirectoryPath(cwd)
     try fm.removeItem(at: random_directory)
@@ -378,6 +360,43 @@ func load_password() throws -> String?{
 }
 func decrypt_file(_ filePath: String, file: String){
     openssl_decrypt(filePath, outputFile: file)
+}
+enum AppFixErrors: Error{
+    case noAppFound
+}
+func fixApplication(appURL: URL) throws{
+    let fm = FileManager.default
+    
+    print("Checking if \(appURL.lastPathComponent) is available...")
+    guard fm.fileExists(atPath: appURL.path) else { throw AppFixErrors.noAppFound }
+    
+    let executables = try fm.contentsOfDirectory(atPath: appURL.path(percentEncoded: false) + "/Contents/MacOS")
+    print("Executables found:", executables)
+    
+    let cmds = [
+        ["xattr", "-d", "com.apple.quarantine"],
+        ["chmod", "+x"],
+        ["xattr", "-cr"]
+    ]
+    
+    for cmd in cmds{
+        let task = Process()
+        task.executableURL = .init(filePath: "/usr/bin/env")
+        task.arguments = cmd + [appURL.path(percentEncoded: false)]
+        try task.run()
+        task.waitUntilExit()
+    }
+    
+    for executable in executables {
+        let fullPath = appURL.path(percentEncoded: false) + "/Contents/MacOS/\(executable)"
+        let task = Process()
+        task.executableURL = .init(filePath: "/usr/bin/env")
+        task.arguments = ["chmod", "+x", fullPath]
+        try task.run()
+        task.waitUntilExit()
+    }
+    
+    
 }
 
 var COMMANDS: [String: [String: Any]] = [
