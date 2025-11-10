@@ -344,7 +344,7 @@ func install_app_from_encrypted_zip(_ params: dynamicParams) throws {
     print("Available Files: \(files)")
     let tempApp = fm.currentDirectoryPath.appending("/" + (try fm.contentsOfDirectory(atPath: ".").first!))
     try fixApplication(appURL: .init(filePath: tempApp))
-    mv(tempApp, destination: cwd)
+    try fm.copyItem(at: URL(fileURLWithPath: tempApp), to: URL(fileURLWithPath: cwd).appendingPathComponent(appName))
     fm.changeCurrentDirectoryPath(cwd)
     try fm.removeItem(at: random_directory)
     try fm.removeItem(at: URL(fileURLWithPath: dest))
