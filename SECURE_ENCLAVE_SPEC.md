@@ -324,17 +324,17 @@ This document specifies the binary file format for SDist Secure Enclave (SE) enc
 - SHA-256 integrity marker
 - JSON metadata format
 
+### Version 2.0 
+- **Metdata**: Strips all metadata beyond what's required for the keys
+
 ---
 
 ## Future Enhancements
 
-### Version 1.1 (Proposed)
+### Version 2.1 (Proposed)
 - **HMAC integrity marker**: Replace SHA-256 with HMAC-SHA256
 - **Metadata encryption**: Optional encrypted metadata section
 - **Compression support**: Transparent zlib/zstd before encryption
-
-### Version 2.0 
-- **Metdata**: Strips all metadata beyond what's required for the keys
 
 ---
 
