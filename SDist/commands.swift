@@ -7,50 +7,50 @@
 
 import Foundation
 
-fileprivate let special = "XS@#$%"
-fileprivate var paramIdsCalls: [
-    String: Int
-] = [:]
-
-typealias dynamicParams = [String: String]
-
 enum Errors: Error {
     case noMoreParams
+    case fileNotFound(String)
 }
 
-extension dynamicParams{
+fileprivate let special = "XS@#$%"
+fileprivate var paramIdsCalls: [String: Int] = [:]
+typealias dynamicParams = [String: String]
+
+extension dynamicParams {
     private static var orderedKeys: [String: [String]] = [:]
     
-    func getKey(_ string: String, alternative_method: () -> (String)) -> String{
-        let specialId = Array(self.keys).sorted().joined() // Use sorted for consistent ID
+    func getKey(_ string: String, alternative_method: () -> (String)) -> String {
+        let specialId = Array(self.keys).sorted().joined()
         
-        // Get the ordered keys for this params instance
-        guard let orderedKeys = dynamicParams.orderedKeys[specialId] else {
-            return alternative_method()
-        }
-        
-        do{
-            if self.keys.contains(string){
+        do {
+            if self.keys.contains(string) {
                 return self[string]!
-            }else{
-                if let firstKey = orderedKeys.first, self[firstKey] == special{
-                    if let pos = paramIdsCalls[specialId]{
+            } else {
+                // Get the ordered keys for this params instance
+                guard let orderedKeys = dynamicParams.orderedKeys[specialId] else {
+                    return alternative_method()
+                }
+                
+                // Check if using indexed special keys (format: "0", "1", "2", etc.)
+                let indexedKeys = orderedKeys.enumerated().map { String($0.offset) }
+                if let firstIndexKey = indexedKeys.first, self[firstIndexKey] == special {
+                    if let pos = paramIdsCalls[specialId] {
                         paramIdsCalls[specialId] = pos + 1
-                        if orderedKeys.count <= (pos + 1){
+                        if orderedKeys.count <= (pos + 1) {
                             throw Errors.noMoreParams
                         }
                         return orderedKeys[pos + 1]
-                    }else{
+                    } else {
                         paramIdsCalls[specialId] = 0
                         return orderedKeys[0]
                     }
                 }
             }
         } catch {
-            if arguments.contains(.errorOnNoParamsError){
+            if arguments.contains(.errorOnNoParamsError) {
                 print("Error: \(error). Interactive mode is disabled.")
                 exit(EXIT_FAILURE)
-            }else{
+            } else {
                 print("Error: \(error). Falling back to interactive mode.")
             }
         }
@@ -58,17 +58,16 @@ extension dynamicParams{
         return alternative_method()
     }
     
-    init(fromArray: [String]){
+    init(fromArray: [String]) {
         self.init()
-        let specialId = fromArray.sorted().joined()
+        let specialId = fromArray.enumerated().map { String($0.offset) }.sorted().joined()
         dynamicParams.orderedKeys[specialId] = fromArray // Store the original order!
-        
-        for item in fromArray{
-            self[item] = special
+        // Use indices as keys instead of the actual values
+        for (index, _) in fromArray.enumerated() {
+            self[String(index)] = special
         }
     }
 }
-
 
 let tempDir = URL(filePath: NSTemporaryDirectory())
 let fm = FileManager.default
@@ -350,6 +349,28 @@ func install_app_from_encrypted_zip(_ params: dynamicParams) throws {
     try fm.removeItem(at: URL(fileURLWithPath: dest))
 }
 
+func install_app_encrypted(_ params: dynamicParams) throws {
+    let key = params.getKey("key", alternative_method: askUserWrapper(question: "Asset Key: "))
+    let appName = params.getKey("appName", alternative_method: askUserWrapper(question: "App Name: "))
+    let tempEncZipName = appName + ".zip.enc"
+    
+    try download_asset([
+        "key": key,
+        "saveName": tempEncZipName,
+        "decryptFile": "n"
+    ])
+    
+    guard fm.fileExists(atPath: tempEncZipName) else {
+        throw Errors.fileNotFound("Unable to find: \(tempEncZipName)")
+    }
+    
+    try install_app_from_encrypted_zip([
+        "path": tempEncZipName,
+        "appName": appName,
+    ])
+    
+}
+
 #endif
 
 func load_password() throws -> String?{
@@ -477,6 +498,11 @@ func addMacOSOnly() {
     COMMANDS["install"] = [
         "function": install_app,
         "description": "Install an application"
+    ]
+    
+    COMMANDS["install-encrypted"] = [
+        "function": install_app_encrypted,
+        "description": "Install an application thats encrypted with OpenSSL"
     ]
     
     COMMANDS["install-local-encrypted"] = [
