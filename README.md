@@ -1,6 +1,6 @@
 # SDist
 
-**Secure Distribution** - A command-line tool for secure distribution of payloads with optional encryption
+**SDist** - A command-line tool for secure distribution of payloads with optional encryption
 
 SDist provides a centralized manifest system for managing and distributing assets across networks, with support for both standard password-based encryption and hardware-backed Secure Enclave encryption on macOS.
 
