@@ -107,6 +107,53 @@ If an encrypted file (.enc) is detected during download, SDist will prompt wheth
 
 ---
 
+## macOS Application Distribution
+
+SDist includes specialized commands for distributing and installing macOS application bundles (.app). This feature is macOS-only and handles the complete workflow from download to installation.
+
+### Application Installation Process
+
+When using the `install`, `install-encrypted`, or `install-local-encrypted` commands, SDist performs the following operations:
+
+1. **Download or Locate**: Retrieves the application zip from the manifest URL or uses a local encrypted zip file
+2. **Decryption** (if encrypted): Decrypts the zip file using OpenSSL with user-provided password
+3. **Extraction**: Unzips the application to a temporary directory
+4. **Security Attribute Removal**: Removes macOS Gatekeeper quarantine flags and clears extended attributes that would prevent execution
+5. **Permission Setting**: Makes the application executable
+6. **Installation**: Moves the .app bundle to the current working directory
+7. **Cleanup**: Removes temporary files and directories
+
+### Operations Performed on Applications
+
+SDist automatically executes these security-related operations on installed applications:
+
+- **`xattr -d com.apple.quarantine`**: Removes the quarantine attribute that macOS applies to downloaded files, which would otherwise trigger Gatekeeper warnings
+- **`chmod +x`**: Sets executable permissions on the application bundle and its executables
+- **`xattr -cr`**: Recursively clears all extended attributes from the application bundle
+
+These operations ensure the application can launch immediately without manual intervention to bypass security prompts.
+
+### Application Distribution Formats
+
+Applications can be distributed in three formats:
+
+1. **Plain zip**: Standard .zip file containing the .app bundle (use `install` command)
+2. **OpenSSL encrypted zip**: .zip.enc file requiring password decryption (use `install-encrypted` command)
+3. **Local encrypted zip**: Previously downloaded encrypted zip (use `install-local-encrypted` command)
+
+All formats are extracted to the current directory after processing. The encrypted formats provide an additional layer of security for proprietary or sensitive applications.
+
+### Application Bundle Requirements
+
+For successful installation, application zips must:
+- Contain a single .app bundle at the root level
+- Follow standard macOS application structure (Contents/MacOS/ with executables)
+- Be properly formatted zip archives
+
+SDist will verify the application structure and abort installation if the bundle format is invalid.
+
+---
+
 ## Installation
 
 ### Building from Source
@@ -242,9 +289,3 @@ SDist/
 ├── SECURE_ENCLAVE_SPEC.md    # Technical specification for SE encryption
 └── README.md                 # This file
 ```
-
----
-
-## License
-
-Refer to the project repository for licensing information.
