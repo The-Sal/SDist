@@ -9,7 +9,7 @@ import Foundation
 
 
 
-let VERSION = 0.8
+let VERSION = 0.9
 
 print(WELCOME_MSG)
 print("Version: \(VERSION)")
