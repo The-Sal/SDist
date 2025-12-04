@@ -13,6 +13,7 @@ SDist operates on a client-server model where:
 - Clients use a **manifest password** to access and manage asset URLs in the manifest
 - Assets can be optionally encrypted using either OpenSSL or macOS Secure Enclave
 - The manifest password is distinct from encryption keys used to secure the actual payloads
+- Downloads can be customized with **cURL Mods** for CDN-specific requirements
 
 ### Key Concept: Manifest Password vs Encryption Keys
 
@@ -245,6 +246,91 @@ Use the `-h` flag to view detailed documentation on all commands and flags.
 
 ---
 
+## cURL Mods - Custom Download Configuration
+
+### Overview
+
+SDist includes a flexible cURL modification system that allows you to customize download requests with additional headers and parameters. This feature is particularly useful when downloading from CDNs or services that require specific HTTP headers, user agents, or referers.
+
+### How It Works
+
+The cURL Mods system automatically detects URL patterns in download requests and applies corresponding modifications. When SDist performs a download operation using the `download` command, it checks if the URL matches any configured patterns and applies the associated modifications transparently.
+
+### Configuration
+
+cURL Mods can be configured in two ways:
+
+#### 1. Built-in Patterns
+
+SDist includes default patterns for common services:
+- **Mega.co.nz transfers**: Automatically includes required headers for mega.co.nz API downloads
+
+#### 2. Custom Configuration File
+
+Create a JSON configuration file at `~/.sdist_config.json` to add your own patterns:
+
+```json
+[
+  {
+    "pattern": "https://example.com",
+    "additionalParameters": ["-H", "Authorization: Bearer token", "-H", "User-Agent: CustomAgent/1.0"]
+  },
+  {
+    "pattern": "https://cdn.myservice.com",
+    "additionalParameters": ["-H", "Referer: https://mysite.com"]
+  }
+]
+```
+
+### Configuration Format
+
+Each cURL mod entry consists of:
+- **pattern**: A string to match against the download URL (substring match)
+- **additionalParameters**: An array of additional cURL arguments to append
+
+### Supported Parameters
+
+You can add any valid cURL parameters, including:
+- HTTP headers: `["-H", "Header-Name: value"]`
+- User agent: `["-H", "User-Agent: YourAgent/1.0"]`
+- Referer: `["-H", "Referer: https://example.com"]`
+- Custom flags: `["-k"]` for insecure connections, `["--compressed"]` for compression, etc.
+
+### Example Usage
+
+When downloading an asset that matches a pattern:
+
+```bash
+./sdist -c -p PASSWORD -f download -a asset_key output_file
+```
+
+If the asset URL contains `https://bt7.api.mega.co.nz`, SDist will automatically append:
+```
+-H "Referer: https://transfer.it/"
+-H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"
+```
+
+### Debugging
+
+When a pattern matches, SDist prints diagnostic information:
+```
+cURL Mods: Config File=/Users/username/.sdist_config.json
+cURL Mods: All Mods Found...
+https://example.com -> ["-H", "Authorization: Bearer token"]
+cURL Mods: Pattern matched, updated to cURL=[curl, --progress-bar, -L, -o, file.zip, https://example.com/file.zip, -H, Authorization: Bearer token]
+```
+
+This output shows which patterns were loaded and when they're applied to download requests.
+
+### Use Cases
+
+- **CDN Authentication**: Add authorization tokens for private CDNs
+- **Header Requirements**: Include required referers or custom headers for services
+- **User Agent Spoofing**: Set specific user agents for compatibility
+- **Protocol Handling**: Add flags for specific download scenarios
+
+---
+
 ## Security Considerations
 
 ### Manifest Password Storage
@@ -271,7 +357,14 @@ Files encrypted with Secure Enclave cannot be decrypted on a different device or
 
 ## Version
 
-Current version: 0.8
+Current version: 0.9
+
+### What's New in Version 0.9
+
+- **cURL Mods System**: Introduced customizable download configuration that allows dynamic modification of cURL requests with custom headers and parameters
+- **CDN Support Enhancement**: Built-in support for services with special header requirements (e.g., Mega.co.nz)
+- **Custom Configuration**: New `~/.sdist_config.json` file for user-defined cURL patterns and modifications
+- **Download Flexibility**: Enhanced download capabilities with transparent header injection for CDN compatibility
 
 ---
 
@@ -285,7 +378,7 @@ SDist/
 │   ├── constants.swift       # Configuration and endpoints
 │   ├── openssl.swift         # OpenSSL encryption functions
 │   ├── secureEnclave.swift   # Secure Enclave operations (macOS)
-│   └── subprocesses.swift    # Process spawning utilities
+│   └── subprocesses.swift    # Process spawning utilities and cURL Mods
 ├── SECURE_ENCLAVE_SPEC.md    # Technical specification for SE encryption
 └── README.md                 # This file
 ```
