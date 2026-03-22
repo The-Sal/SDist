@@ -9,7 +9,7 @@ import Foundation
 
 
 
-let VERSION = 0.9
+let VERSION = "0.9.1"
 
 print(WELCOME_MSG)
 print("Version: \(VERSION)")
@@ -65,7 +65,7 @@ extension [String]{
 
 var PASSWORD: String = "NONE"
 let arguments = CommandLine.arguments
-let PW_location = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".sdist")
+let PW_location = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sdist")
 
 // Initialize Secure Enclave commands on macOS
 #if os(macOS)
@@ -79,8 +79,12 @@ func user_interface() throws{
     help(dynamicParams())
     while true{
         print("Ener a command: ", terminator: "")
-        let cmd = readLine()!
+        let input = readLine()!
         
+        // convert spaces into args
+        let args = input.split(separator: " ").map(\.description)
+        let cmd = args.first ?? ""
+        let argsToPass = args.dropFirst().map(\.description).filter({$0 != "" })
         if cmd == "exit"{
             exit(EXIT_SUCCESS)
         }
@@ -92,7 +96,7 @@ func user_interface() throws{
             
             let showOperation = String(repeating: "*", count: Int(Double(getTerminalColumns() ?? 100) * 0.5))
             print(showOperation)
-            try function(.init())
+            try function(.init(fromArray: argsToPass))
             if cmd != "clear"{ print(showOperation) }
         }
     }
