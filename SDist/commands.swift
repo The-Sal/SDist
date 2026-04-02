@@ -220,6 +220,82 @@ func listDirectory(_ params: dynamicParams) {
     proc.waitUntilExit()
 }
 
+func config_upload(_ params: dynamicParams) throws {
+    let path = params.getKey("path", alternative_method: askUserWrapper(question: "Path for upload:"))
+    let url = params.getKey("url", alternative_method: askUserWrapper(question: "URL for upload:"))
+    
+    CurlMods.shared.loadMods()
+    try CurlMods.shared.setUploadConfig(path: path, url: url)
+    print("Upload configuration saved.")
+    print("  path_for_upload: \(path)")
+    print("  url_for_upload: \(url)")
+}
+
+func sanitizeFilename(_ filename: String) -> String {
+    var sanitized = filename
+    sanitized = sanitized.replacingOccurrences(of: " ", with: "-")
+    sanitized = sanitized.components(separatedBy: CharacterSet.alphanumerics.inverted).joined(separator: "-")
+    sanitized = sanitized.replacingOccurrences(of: "--", with: "-")
+    sanitized = sanitized.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    return sanitized
+}
+
+func upload_asset(_ params: dynamicParams) throws {
+    CurlMods.shared.loadMods()
+    
+    guard let uploadPath = CurlMods.shared.pathForUpload else {
+        print("Error: Upload path not configured. Run 'config' first.")
+        return
+    }
+    guard let uploadURL = CurlMods.shared.urlForUpload else {
+        print("Error: Upload URL not configured. Run 'config' first.")
+        return
+    }
+    
+    let filePath = params.getKey("path", alternative_method: askUserWrapper(question: "File path:")).replacingOccurrences(of: "\\ ", with: " ")
+    
+    var isDirectory: ObjCBool = false
+    guard fm.fileExists(atPath: filePath, isDirectory: &isDirectory) else {
+        print("Error: File not found at path: \(filePath)")
+        return
+    }
+    
+    if isDirectory.boolValue {
+        print("Error: Path is a directory, not a file: \(filePath)")
+        return
+    }
+    
+    let filename = (filePath as NSString).lastPathComponent
+    let sanitized = sanitizeFilename(filename)
+    
+    if sanitized.isEmpty {
+        print("Error: Filename is empty or contains only invalid characters.")
+        return
+    }
+    
+    let destinationPath = (uploadPath as NSString).appendingPathComponent(sanitized)
+    
+    print("Copying file to: \(destinationPath)")
+    copyFile(filePath, destination: destinationPath)
+    
+    let fullURL = uploadURL.hasSuffix("/") ? "\(uploadURL)\(sanitized)" : "\(uploadURL)/\(sanitized)"
+    let assetKey = sanitized
+    
+    print("Registering asset...")
+    print("  Key: \(assetKey)")
+    print("  URL: \(fullURL)")
+    
+    let encodedURL = fullURL.data(using: .utf8)!.base64EncodedString()
+    let response = GET(url: .init(format: Endpoints.setLocation, assetKey, encodedURL, PASSWORD))
+    
+    print("Server Response:")
+    print(response ?? "No response")
+    if try !_check_response(response){
+        return
+    }
+    print("Upload complete.")
+}
+
 #if os(macOS)
 func encrypt_asset_se(_ params: dynamicParams) throws {
     let fp = params.getKey("path", alternative_method: askUserWrapper(question: "Filepath:")).replacingOccurrences(of: "\\ ", with: " ")
@@ -473,6 +549,14 @@ var COMMANDS: [String: [String: Any]] = [
     "ls": [
         "function": listDirectory,
         "description": "List the contents of a directory"
+    ],
+    "config": [
+        "function": config_upload,
+        "description": "Configure upload path and URL"
+    ],
+    "upload": [
+        "function": upload_asset,
+        "description": "Upload a file and register it"
     ]
 ]
 

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -38,6 +38,10 @@
 		22E60A472B8D858A000F15E4 /* commands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = commands.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		22C87BEA2F7E52D100B15C03 /* vendor */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = vendor; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		22E60A352B8D81ED000F15E4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -68,6 +72,7 @@
 		22E60A3A2B8D81ED000F15E4 /* SDist */ = {
 			isa = PBXGroup;
 			children = (
+				22C87BEA2F7E52D100B15C03 /* vendor */,
 				22E60A422B8D81F9000F15E4 /* SDist.entitlements */,
 				22E60A3B2B8D81ED000F15E4 /* main.swift */,
 				2217654C2EB7E68500A283BC /* openssl.swift */,
@@ -93,6 +98,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				22C87BEA2F7E52D100B15C03 /* vendor */,
 			);
 			name = SDist;
 			productName = SDist;

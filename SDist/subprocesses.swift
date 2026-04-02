@@ -8,16 +8,23 @@
 import Foundation
 
 
-/// Not Regex Supported just uses if (string) in any of ARGs
-/// prevents changing the base url ADD–ONLY
 struct cURLMod: Codable{
-    var pattern: String // This string should be inside the arguments
+    var pattern: String
     var additionalParameters: [String]
 }
 
-/// When running curl website dynamcially change content is shown, for example sometimes they want different headers
-/// and other features to enable this cURL mods allow specifying a JSON which dynamically allows you to modify the cURL
-/// requests on the fly for functions that use it
+struct SDistConfig: Codable{
+    var curl_mods: [cURLMod]
+    var path_for_upload: String?
+    var url_for_upload: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case curl_mods
+        case path_for_upload
+        case url_for_upload
+    }
+}
+
 class CurlMods{
     let configFile = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".sdist_config.json")
     var mods: [cURLMod] = [
@@ -25,19 +32,49 @@ class CurlMods{
                 additionalParameters: ["-H", "Referer: https://transfer.it/", "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"])
     ]
     
+    var pathForUpload: String? {
+        return loadedConfig?.path_for_upload
+    }
+    
+    var urlForUpload: String? {
+        return loadedConfig?.url_for_upload
+    }
+    
+    private var loadedConfig: SDistConfig?
+    
     init(){
         print("cURL Mods: Config File=\(self.configFile.path)")
     }
     
     func loadMods(){
         do{
-            let content = try JSONDecoder().decode([cURLMod].self, from: try Data(contentsOf: configFile))
-            self.mods.append(contentsOf: content)
-            print("cURL Mods: All Mods Found...")
-            _ = self.mods.compactMap({ print($0.pattern, "->", $0.additionalParameters)})
+            let data = try Data(contentsOf: configFile)
+            if let config = try? JSONDecoder().decode(SDistConfig.self, from: data) {
+                self.loadedConfig = config
+                self.mods.append(contentsOf: config.curl_mods)
+                print("cURL Mods: All Mods Found...")
+                _ = self.mods.compactMap({ print($0.pattern, "->", $0.additionalParameters)})
+            } else {
+                let content = try JSONDecoder().decode([cURLMod].self, from: data)
+                self.mods.append(contentsOf: content)
+                self.loadedConfig = SDistConfig(curl_mods: self.mods, path_for_upload: nil, url_for_upload: nil)
+                print("cURL Mods: All Mods Found (legacy format)...")
+                _ = self.mods.compactMap({ print($0.pattern, "->", $0.additionalParameters)})
+            }
         } catch {
             print("WARNING: Unable to load cURL Mods, Error=", error)
         }
+    }
+    
+    func saveConfig() throws {
+        let config = SDistConfig(curl_mods: self.mods, path_for_upload: self.pathForUpload, url_for_upload: self.urlForUpload)
+        let data = try JSONEncoder().encode(config)
+        try data.write(to: configFile)
+    }
+    
+    func setUploadConfig(path: String, url: String) throws {
+        self.loadedConfig = SDistConfig(curl_mods: self.mods, path_for_upload: path, url_for_upload: url)
+        try saveConfig()
     }
     
     func updateCurlCall(cURLCall: [String]) -> [String]{
@@ -105,6 +142,14 @@ func mv(_ string: String, destination: String){
     task1.arguments = [string, destination]
     task1.launch()
     task1.waitUntilExit()
+}
+
+func copyFile(_ source: String, destination: String){
+    let task = Process()
+    task.launchPath = "/bin/cp"
+    task.arguments = [source, destination]
+    task.launch()
+    task.waitUntilExit()
 }
 
 func rm(_ string: String){
