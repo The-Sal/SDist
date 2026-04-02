@@ -20,6 +20,12 @@ private var _manifestKeysCache: [String]?
 private var _manifestCacheTime: Date?
 private let MANIFEST_CACHE_TTL: TimeInterval = 60.0
 
+func getCWDFiles() -> [String] {
+    let cwd = FileManager.default.currentDirectoryPath
+    guard let contents = try? FileManager.default.contentsOfDirectory(atPath: cwd) else { return [] }
+    return contents.filter { !$0.hasPrefix(".") }
+}
+
 func getCachedManifestKeys() -> [String] {
     if let cache = _manifestKeysCache,
        let cacheTime = _manifestCacheTime,
@@ -84,8 +90,8 @@ extension dynamicParams {
     init(fromArray: [String]) {
         self.init()
         let specialId = fromArray.enumerated().map { String($0.offset) }.sorted().joined()
-        dynamicParams.orderedKeys[specialId] = fromArray // Store the original order!
-        // Use indices as keys instead of the actual values
+        dynamicParams.orderedKeys[specialId] = fromArray
+        paramIdsCalls[specialId] = -1
         for (index, _) in fromArray.enumerated() {
             self[String(index)] = special
         }

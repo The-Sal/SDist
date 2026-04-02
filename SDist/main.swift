@@ -91,7 +91,9 @@ func user_interface() throws{
             let command = components[0]
             let prefix = components[1...].joined(separator: " ")
             let manifestKeys = getCachedManifestKeys()
-            return manifestKeys
+            let cwdFiles = getCWDFiles()
+            let allItems = Array(Set(manifestKeys + cwdFiles))
+            return allItems
                 .filter { $0.hasPrefix(prefix) }
                 .map { command + " " + $0 }
                 .sorted()
@@ -111,7 +113,9 @@ func user_interface() throws{
             let command = components[0]
             let prefix = components[1...].joined(separator: " ")
             let manifestKeys = getCachedManifestKeys()
-            candidates = manifestKeys
+            let cwdFiles = getCWDFiles()
+            let allItems = Array(Set(manifestKeys + cwdFiles))
+            candidates = allItems
                 .filter { $0.hasPrefix(prefix) && $0 != prefix }
                 .map { command + " " + $0 }
                 .sorted()

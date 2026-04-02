@@ -3,12 +3,19 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		2217654D2EB7E68500A283BC /* openssl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217654C2EB7E68500A283BC /* openssl.swift */; };
 		2217654F2EB7E68600A283BC /* secureEnclave.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217654E2EB7E68600A283BC /* secureEnclave.swift */; };
+		22C87C142F7E573600B15C03 /* AnsiCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C0B2F7E573600B15C03 /* AnsiCodes.swift */; };
+		22C87C152F7E573600B15C03 /* ControlCharacters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C0C2F7E573600B15C03 /* ControlCharacters.swift */; };
+		22C87C162F7E573600B15C03 /* EditState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C0D2F7E573600B15C03 /* EditState.swift */; };
+		22C87C172F7E573600B15C03 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C0E2F7E573600B15C03 /* Errors.swift */; };
+		22C87C182F7E573600B15C03 /* History.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C0F2F7E573600B15C03 /* History.swift */; };
+		22C87C192F7E573600B15C03 /* linenoise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C102F7E573600B15C03 /* linenoise.swift */; };
+		22C87C1A2F7E573600B15C03 /* Terminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C87C112F7E573600B15C03 /* Terminal.swift */; };
 		22E60A3C2B8D81ED000F15E4 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E60A3B2B8D81ED000F15E4 /* main.swift */; };
 		22E60A442B8D821E000F15E4 /* constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E60A432B8D821E000F15E4 /* constants.swift */; };
 		22E60A462B8D839A000F15E4 /* subprocesses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E60A452B8D839A000F15E4 /* subprocesses.swift */; };
@@ -30,6 +37,13 @@
 /* Begin PBXFileReference section */
 		2217654C2EB7E68500A283BC /* openssl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = openssl.swift; sourceTree = "<group>"; };
 		2217654E2EB7E68600A283BC /* secureEnclave.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = secureEnclave.swift; sourceTree = "<group>"; };
+		22C87C0B2F7E573600B15C03 /* AnsiCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnsiCodes.swift; sourceTree = "<group>"; };
+		22C87C0C2F7E573600B15C03 /* ControlCharacters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlCharacters.swift; sourceTree = "<group>"; };
+		22C87C0D2F7E573600B15C03 /* EditState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditState.swift; sourceTree = "<group>"; };
+		22C87C0E2F7E573600B15C03 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
+		22C87C0F2F7E573600B15C03 /* History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = History.swift; sourceTree = "<group>"; };
+		22C87C102F7E573600B15C03 /* linenoise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = linenoise.swift; sourceTree = "<group>"; };
+		22C87C112F7E573600B15C03 /* Terminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Terminal.swift; sourceTree = "<group>"; };
 		22E60A382B8D81ED000F15E4 /* SDist */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SDist; sourceTree = BUILT_PRODUCTS_DIR; };
 		22E60A3B2B8D81ED000F15E4 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		22E60A422B8D81F9000F15E4 /* SDist.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SDist.entitlements; sourceTree = "<group>"; };
@@ -37,10 +51,6 @@
 		22E60A452B8D839A000F15E4 /* subprocesses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = subprocesses.swift; sourceTree = "<group>"; };
 		22E60A472B8D858A000F15E4 /* commands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = commands.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		22C87BEA2F7E52D100B15C03 /* vendor */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = vendor; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		22E60A352B8D81ED000F15E4 /* Frameworks */ = {
@@ -72,7 +82,13 @@
 		22E60A3A2B8D81ED000F15E4 /* SDist */ = {
 			isa = PBXGroup;
 			children = (
-				22C87BEA2F7E52D100B15C03 /* vendor */,
+				22C87C0B2F7E573600B15C03 /* AnsiCodes.swift */,
+				22C87C0C2F7E573600B15C03 /* ControlCharacters.swift */,
+				22C87C0D2F7E573600B15C03 /* EditState.swift */,
+				22C87C0E2F7E573600B15C03 /* Errors.swift */,
+				22C87C0F2F7E573600B15C03 /* History.swift */,
+				22C87C102F7E573600B15C03 /* linenoise.swift */,
+				22C87C112F7E573600B15C03 /* Terminal.swift */,
 				22E60A422B8D81F9000F15E4 /* SDist.entitlements */,
 				22E60A3B2B8D81ED000F15E4 /* main.swift */,
 				2217654C2EB7E68500A283BC /* openssl.swift */,
@@ -98,9 +114,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				22C87BEA2F7E52D100B15C03 /* vendor */,
 			);
 			name = SDist;
 			productName = SDist;
@@ -147,6 +160,13 @@
 			files = (
 				22E60A462B8D839A000F15E4 /* subprocesses.swift in Sources */,
 				22E60A3C2B8D81ED000F15E4 /* main.swift in Sources */,
+				22C87C142F7E573600B15C03 /* AnsiCodes.swift in Sources */,
+				22C87C152F7E573600B15C03 /* ControlCharacters.swift in Sources */,
+				22C87C162F7E573600B15C03 /* EditState.swift in Sources */,
+				22C87C172F7E573600B15C03 /* Errors.swift in Sources */,
+				22C87C182F7E573600B15C03 /* History.swift in Sources */,
+				22C87C192F7E573600B15C03 /* linenoise.swift in Sources */,
+				22C87C1A2F7E573600B15C03 /* Terminal.swift in Sources */,
 				22E60A442B8D821E000F15E4 /* constants.swift in Sources */,
 				2217654D2EB7E68500A283BC /* openssl.swift in Sources */,
 				2217654F2EB7E68600A283BC /* secureEnclave.swift in Sources */,
