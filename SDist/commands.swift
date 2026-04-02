@@ -16,6 +16,29 @@ fileprivate let special = "XS@#$%"
 fileprivate var paramIdsCalls: [String: Int] = [:]
 typealias dynamicParams = [String: String]
 
+private var _manifestKeysCache: [String]?
+private var _manifestCacheTime: Date?
+private let MANIFEST_CACHE_TTL: TimeInterval = 60.0
+
+func getCachedManifestKeys() -> [String] {
+    if let cache = _manifestKeysCache,
+       let cacheTime = _manifestCacheTime,
+       Date().timeIntervalSince(cacheTime) < MANIFEST_CACHE_TTL {
+        return cache
+    }
+    
+    let url = String(format: Endpoints.allLocation, PASSWORD)
+    guard let response = GET(url: url, silent: true),
+          let jsonData = response.data(using: .utf8),
+          let jsonArray = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String] else {
+        return _manifestKeysCache ?? []
+    }
+    
+    _manifestKeysCache = jsonArray
+    _manifestCacheTime = Date()
+    return jsonArray
+}
+
 extension dynamicParams {
     private static var orderedKeys: [String: [String]] = [:]
     

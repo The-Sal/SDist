@@ -9,7 +9,7 @@ import Foundation
 
 
 
-let VERSION = "0.10.0"
+let VERSION = "0.11.0"
 
 print(WELCOME_MSG)
 print("Version: \(VERSION)")
@@ -76,16 +76,76 @@ addMacOSOnly()
 
 
 func user_interface() throws{
+    let linenoise = LineNoise()
+    let historyFile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sdist_history").path
+    try? linenoise.loadHistory(fromFile: historyFile)
+    linenoise.setHistoryMaxLength(1000)
+    
+    linenoise.setCompletionCallback { text in
+        let components = text.components(separatedBy: " ").filter { !$0.isEmpty }
+        
+        if components.count <= 1 {
+            let prefix = components.first ?? ""
+            return COMMANDS.keys.filter { $0.hasPrefix(prefix) }.sorted()
+        } else {
+            let command = components[0]
+            let prefix = components[1...].joined(separator: " ")
+            let manifestKeys = getCachedManifestKeys()
+            return manifestKeys
+                .filter { $0.hasPrefix(prefix) }
+                .map { command + " " + $0 }
+                .sorted()
+        }
+    }
+    
+    linenoise.setHintsCallback { text in
+        guard !text.isEmpty else { return (nil as String?, nil as (Int, Int, Int)?) }
+        
+        let components = text.components(separatedBy: " ").filter { !$0.isEmpty }
+        var candidates: [String]
+        
+        if components.count <= 1 {
+            let prefix = components.first ?? ""
+            candidates = COMMANDS.keys.filter { $0.hasPrefix(prefix) && $0 != prefix }.sorted()
+        } else {
+            let command = components[0]
+            let prefix = components[1...].joined(separator: " ")
+            let manifestKeys = getCachedManifestKeys()
+            candidates = manifestKeys
+                .filter { $0.hasPrefix(prefix) && $0 != prefix }
+                .map { command + " " + $0 }
+                .sorted()
+        }
+        
+        guard let first = candidates.first else { return (nil as String?, nil as (Int, Int, Int)?) }
+        let hint = String(first.dropFirst(text.count))
+        return (hint, (128, 128, 128))
+    }
+    
     help(dynamicParams())
     while true{
-        print("Ener a command: ", terminator: "")
-        let input = readLine()!
+        let input: String
+        do {
+            input = try linenoise.getLine(prompt: "Enter a command: ")
+        } catch LinenoiseError.EOF {
+            print("")
+            break
+        } catch LinenoiseError.CTRL_C {
+            print("")
+            continue
+        } catch {
+            print("Error: \(error)")
+            break
+        }
         
-        // convert spaces into args
+        linenoise.addHistory(input)
+        
+        print("")
         let args = input.split(separator: " ").map(\.description)
         let cmd = args.first ?? ""
         let argsToPass = args.dropFirst().map(\.description).filter({$0 != "" })
         if cmd == "exit"{
+            try? linenoise.saveHistory(toFile: historyFile)
             exit(EXIT_SUCCESS)
         }
         
@@ -100,6 +160,8 @@ func user_interface() throws{
             if cmd != "clear"{ print(showOperation) }
         }
     }
+    
+    try? linenoise.saveHistory(toFile: historyFile)
 }
 
 func commandLineMode() throws{

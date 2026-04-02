@@ -96,13 +96,16 @@ class CurlMods{
 }
 
 
-func GET(url: String) -> String? {
+func GET(url: String, silent: Bool = false) -> String? {
     let task = Process()
     let pipe = Pipe()
     
     task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    task.arguments = ["curl", "-L", url]
+    task.arguments = ["curl", "-L", "-s", url]
     task.standardOutput = pipe
+    if silent {
+        task.standardError = Pipe()
+    }
     
     do {
         try task.run()
