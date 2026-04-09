@@ -344,9 +344,3 @@ This document specifies the binary file format for SDist Secure Enclave (SE) enc
 - **ECIES**: IEEE 1363a-2004, SEC 1 v2.0
 - **Secure Enclave**: Apple Platform Security Guide
 - **CryptoKit**: Apple Developer Documentation
-
----
-
-**Specification Author**: Claude (Anthropic AI)
-**Implementation**: SDist Project
-**License**: Same as SDist project

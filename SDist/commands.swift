@@ -306,6 +306,11 @@ func upload_asset(_ params: dynamicParams) throws {
     
     print("Copying file to: \(destinationPath)")
     copyFile(filePath, destination: destinationPath)
+    if !FileManager.default.fileExists(atPath: destinationPath){
+        print("Unable to copy file to: \(destinationPath)")
+        print("Check that the path specified in 'config' is correct.")
+        exit(EXIT_FAILURE)
+    }
     
     let fullURL = uploadURL.hasSuffix("/") ? "\(uploadURL)\(sanitized)" : "\(uploadURL)/\(sanitized)"
     let assetKey = sanitized
