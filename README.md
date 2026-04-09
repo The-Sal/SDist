@@ -295,13 +295,4 @@ On subsequent runs, SDist loads the password from `~/.sdist` automatically — n
 
 > The `.sdist` file is stored in plaintext. Set appropriate permissions on shared systems.
 
----
 
-## Security Considerations
-
-- **OpenSSL passwords** are not stored by SDist; manage them separately
-- **SE keys** live in the macOS Keychain, protected by Secure Enclave and biometrics
-- **SE files** are device-bound — maintain unencrypted backups of critical data if portability is needed
-- Asset URLs and manifest queries are transmitted over HTTPS; overall security depends on your manifest password strength and hosting infrastructure
-
----
